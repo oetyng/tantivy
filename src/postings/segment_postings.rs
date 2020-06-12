@@ -10,9 +10,10 @@ use crate::postings::BlockSearcher;
 use crate::postings::Postings;
 
 use crate::schema::IndexRecordOption;
-use crate::DocId;
+use crate::{DocId, TERMINATED};
 
 use crate::directory::ReadOnlySource;
+use crate::fieldnorm::FieldNormReader;
 use crate::postings::BlockSegmentPostings;
 
 /// `SegmentPostings` represents the inverted list or postings associated to
@@ -38,6 +39,8 @@ impl SegmentPostings {
         }
     }
 
+    /// Returns the overall number of documents in the block postings.
+    /// It does not take in account whether documents are deleted or not.
     pub fn doc_freq(&self) -> u32 {
         self.block_cursor.doc_freq()
     }
@@ -54,6 +57,7 @@ impl SegmentPostings {
         let mut buffer = Vec::new();
         {
             let mut postings_serializer = PostingsSerializer::new(&mut buffer, false, false, None);
+            postings_serializer.new_term(docs.len() as u32);
             for &doc in docs {
                 postings_serializer.write_doc(doc, 1u32);
             }
@@ -66,6 +70,31 @@ impl SegmentPostings {
             ReadOnlySource::from(buffer),
             IndexRecordOption::Basic,
             IndexRecordOption::Basic,
+        );
+        SegmentPostings::from_block_postings(block_segment_postings, None)
+    }
+
+    pub fn create_from_docs_and_tfs(
+        doc_and_tfs: &[(u32, u32)],
+        fieldnorm_reader: Option<FieldNormReader>,
+    ) -> SegmentPostings {
+        let mut buffer = Vec::new();
+        {
+            let mut postings_serializer =
+                PostingsSerializer::new(&mut buffer, true, false, fieldnorm_reader);
+            postings_serializer.new_term(doc_and_tfs.len() as u32);
+            for &(doc, tf) in doc_and_tfs {
+                postings_serializer.write_doc(doc, tf);
+            }
+            postings_serializer
+                .close_term(doc_and_tfs.len() as u32)
+                .expect("In memory Serialization should never fail.");
+        }
+        let block_segment_postings = BlockSegmentPostings::from_data(
+            doc_and_tfs.len() as u32,
+            ReadOnlySource::from(buffer),
+            IndexRecordOption::WithFreqs,
+            IndexRecordOption::WithFreqs,
         );
         SegmentPostings::from_block_postings(block_segment_postings, None)
     }
@@ -96,7 +125,9 @@ impl DocSet for SegmentPostings {
     fn advance(&mut self) -> DocId {
         if self.cur == COMPRESSION_BLOCK_SIZE - 1 {
             self.cur = 0;
-            self.block_cursor.advance();
+            if !self.block_cursor.advance() {
+                return TERMINATED;
+            }
         } else {
             self.cur += 1;
         }

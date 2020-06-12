@@ -63,6 +63,8 @@ macro_rules! doc(
     };
 );
 
+
+
 #[cfg(test)]
 mod test {
     use crate::schema::{Schema, FAST, TEXT};

@@ -13,9 +13,9 @@ mod tests {
     use crate::docset::DocSet;
     use crate::query::{Query, QueryParser, Scorer, TermQuery};
     use crate::schema::{Field, IndexRecordOption, Schema, STRING, TEXT};
-    use crate::tests::assert_nearly_equals;
     use crate::Index;
     use crate::Term;
+    use crate::assert_nearly_equals;
 
     #[test]
     pub fn test_term_query_no_freq() {
@@ -69,7 +69,7 @@ mod tests {
                 .unwrap();
             assert_eq!(topdocs.len(), 1);
             let (score, _) = topdocs[0];
-            assert_nearly_equals(0.77802235, score);
+            assert_nearly_equals!(0.77802235, score);
         }
         {
             let term = Term::from_field_text(left_field, "left1");
@@ -79,9 +79,9 @@ mod tests {
                 .unwrap();
             assert_eq!(top_docs.len(), 2);
             let (score1, _) = top_docs[0];
-            assert_nearly_equals(0.27101856, score1);
+            assert_nearly_equals!(0.27101856, score1);
             let (score2, _) = top_docs[1];
-            assert_nearly_equals(0.13736556, score2);
+            assert_nearly_equals!(0.13736556, score2);
         }
         {
             let query_parser = QueryParser::for_index(&index, vec![]);
@@ -89,9 +89,9 @@ mod tests {
             let top_docs = searcher.search(&query, &TopDocs::with_limit(2)).unwrap();
             assert_eq!(top_docs.len(), 2);
             let (score1, _) = top_docs[0];
-            assert_nearly_equals(0.9153879, score1);
+            assert_nearly_equals!(0.9153879, score1);
             let (score2, _) = top_docs[1];
-            assert_nearly_equals(0.27101856, score2);
+            assert_nearly_equals!(0.27101856, score2);
         }
     }
 
